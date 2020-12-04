@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 import time
 import sys
@@ -24,8 +25,12 @@ colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
 net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
 
 # image prep
-# path_name = "images/street.jpg"
-path_name = sys.argv[1]
+#path_name = "images/street.jpg"
+path_name = input("Enter picture path name(Do not include quote marks):")
+# user's desired object of choice
+desired = input("Enter desired object(Do not include quote marks):")
+# user's desired way of processing
+process = input("Enter desired processing way(Do not include quote marks):")
 image = cv2.imread(path_name)
 file_name = os.path.basename(path_name)
 filename, ext = file_name.split(".")
@@ -95,23 +100,43 @@ if len(idxs) > 0:
         # extract the bounding box coordinates
         x, y = boxes[i][0], boxes[i][1]
         w, h = boxes[i][2], boxes[i][3]
-        # draw a bounding box rectangle and label on the image
-        color = [int(c) for c in colors[class_ids[i]]]
-        cv2.rectangle(image, (x, y), (x + w, y + h), color=color, thickness=thickness)
-        text = f"{labels[class_ids[i]]}: {confidences[i]:.2f}"
-        # calculate text width & height to draw the transparent boxes as background of the text
-        (text_width, text_height) = \
-        cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, fontScale=font_scale, thickness=thickness)[0]
-        text_offset_x = x
-        text_offset_y = y - 5
-        box_coords = ((text_offset_x, text_offset_y), (text_offset_x + text_width + 2, text_offset_y - text_height))
-        overlay = image.copy()
-        cv2.rectangle(overlay, box_coords[0], box_coords[1], color=color, thickness=cv2.FILLED)
-        # add opacity (transparency to the box)
-        image = cv2.addWeighted(overlay, 0.6, image, 0.4, 0)
-        # now put the text (label: confidence %)
-        cv2.putText(image, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=font_scale, color=(0, 0, 0), thickness=thickness)
 
-cv2.imwrite(filename + "_yolo3." + ext, image)
+        text = f"{labels[class_ids[i]]}"
+        # calculate text width & height to draw the transparent boxes as background of the text
+        # if the object desired by the user is found on the image
+        if(text == desired):
+            # if the user wishes to mark out the object
+            # the program will draw a bounding box rectangle and label on the image
+            if (process == "m"):
+                color = [int(c) for c in colors[class_ids[i]]]
+                cv2.rectangle(image, (x, y), (x + w, y + h), color=color, thickness=thickness)
+                (text_width, text_height) = \
+                cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, fontScale=font_scale, thickness=thickness)[0]
+                text_offset_x = x
+                text_offset_y = y - 5
+                box_coords = ((text_offset_x, text_offset_y), (text_offset_x + text_width + 2, text_offset_y - text_height))
+                overlay = image.copy()
+                cv2.rectangle(overlay, box_coords[0], box_coords[1], color=color, thickness=cv2.FILLED)
+                # add opacity (transparency to the box)
+                image = cv2.addWeighted(overlay, 0.6, image, 0.4, 0)
+                # now put the text (label: confidence %)
+                cv2.putText(image, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=font_scale, color=(0, 0, 0), thickness=thickness)
+
+            # if the user wishes to blur out the object
+            # the program will blur it with gaussian filter according to the bounding box
+            if (process == "b"):
+                mask = np.zeros(image.shape, dtype=np.uint8)
+                channel_count = image.shape[2]
+                ignore_mask_color = (255,) * channel_count
+                roi_corners = np.array([[(x,y),(x+w,y),(x+w,y+h),(x,y+h)]],dtype = np.int32)
+                cv2.fillPoly(mask,roi_corners,ignore_mask_color)
+                mask_inverse = np.ones(mask.shape).astype(np.uint8)*255-mask
+                blurred = cv2.GaussianBlur(image, (43, 43), 30)
+                image = cv2.bitwise_and(blurred,mask) + cv2.bitwise_and(image, mask_inverse)
+
+            # if the user wishes to grey scale the object
+            # the object is grey scaled according to bounding box
+
+cv2.imwrite(filename + desired + process + "_yolo3." + ext, image)
 cv2.imshow("image", image)
