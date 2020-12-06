@@ -25,12 +25,16 @@ colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
 net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
 
 # image prep
-#path_name = "images/street.jpg"
+# path_name = "images/street.jpg"
 path_name = input("Enter picture path name(Do not include quote marks):")
 # user's desired object of choice
 desired = input("Enter desired object(Do not include quote marks):")
 # user's desired way of processing
 process = input("Enter desired processing way(Do not include quote marks):")
+# if it's putting a sticker, enter sticker name
+if process == 's':
+    sec_path_name = input("Enter pathname for sticker(needs to be png file):")
+
 image = cv2.imread(path_name)
 file_name = os.path.basename(path_name)
 filename, ext = file_name.split(".")
@@ -104,17 +108,18 @@ if len(idxs) > 0:
         text = f"{labels[class_ids[i]]}"
         # calculate text width & height to draw the transparent boxes as background of the text
         # if the object desired by the user is found on the image
-        if(text == desired):
+        if (text == desired):
             # if the user wishes to mark out the object
             # the program will draw a bounding box rectangle and label on the image
             if (process == "m"):
                 color = [int(c) for c in colors[class_ids[i]]]
                 cv2.rectangle(image, (x, y), (x + w, y + h), color=color, thickness=thickness)
                 (text_width, text_height) = \
-                cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, fontScale=font_scale, thickness=thickness)[0]
+                    cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, fontScale=font_scale, thickness=thickness)[0]
                 text_offset_x = x
                 text_offset_y = y - 5
-                box_coords = ((text_offset_x, text_offset_y), (text_offset_x + text_width + 2, text_offset_y - text_height))
+                box_coords = (
+                (text_offset_x, text_offset_y), (text_offset_x + text_width + 2, text_offset_y - text_height))
                 overlay = image.copy()
                 cv2.rectangle(overlay, box_coords[0], box_coords[1], color=color, thickness=cv2.FILLED)
                 # add opacity (transparency to the box)
@@ -129,14 +134,33 @@ if len(idxs) > 0:
                 mask = np.zeros(image.shape, dtype=np.uint8)
                 channel_count = image.shape[2]
                 ignore_mask_color = (255,) * channel_count
-                roi_corners = np.array([[(x,y),(x+w,y),(x+w,y+h),(x,y+h)]],dtype = np.int32)
-                cv2.fillPoly(mask,roi_corners,ignore_mask_color)
-                mask_inverse = np.ones(mask.shape).astype(np.uint8)*255-mask
+                roi_corners = np.array([[(x, y), (x + w, y), (x + w, y + h), (x, y + h)]], dtype=np.int32)
+                cv2.fillPoly(mask, roi_corners, ignore_mask_color)
+                mask_inverse = np.ones(mask.shape).astype(np.uint8) * 255 - mask
                 blurred = cv2.GaussianBlur(image, (43, 43), 30)
-                image = cv2.bitwise_and(blurred,mask) + cv2.bitwise_and(image, mask_inverse)
+                image = cv2.bitwise_and(blurred, mask) + cv2.bitwise_and(image, mask_inverse)
 
-            # if the user wishes to grey scale the object
-            # the object is grey scaled according to bounding box
+            # if the user wishes to add a sticker on the object
+            # the sticker is
+            if process == "s":
+
+                sticker = cv2.imread(sec_path_name,-1)
+
+                # need to resize sticker according to bounding box
+                sticker = cv2.resize(sticker, (w,h), interpolation = cv2.INTER_AREA)
+                alpha_sticker = sticker[:, :, 3] / 255.0
+                alpha_image = 1.0 - alpha_sticker
+                y1 = y
+                y2 = y1 + sticker.shape[0]
+                x1 = x
+                x2 = x1 + sticker.shape[1]
+                for c in range(0,2):
+                    region = image[y1:y2, x1:x2, c]
+                    alpha_region = alpha_image[:region.shape[0], :region.shape[1]]
+                    alpha_sticker = alpha_sticker[:region.shape[0], :region.shape[1]]
+                    sticker = sticker[:region.shape[0], :region.shape[1]]
+                    image[y1:y2,x1:x2,c] = (alpha_sticker*sticker[:,:,c] + alpha_region*region)
+
 
 cv2.imwrite(filename + desired + process + "_yolo3." + ext, image)
 cv2.imshow("image", image)
