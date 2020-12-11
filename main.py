@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
 import time
 import sys
@@ -26,11 +25,11 @@ net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
 
 # image prep
 # path_name = "images/street.jpg"
-path_name = input("Enter picture path name(Do not include quote marks):")
+path_name = input("Enter picture path name:")
 # user's desired object of choice
-desired = input("Enter desired object(Do not include quote marks):")
+desired = input("Enter desired object:")
 # user's desired way of processing
-process = input("Enter desired processing way(Do not include quote marks):")
+process = input("Enter desired processing way(m/b/s):")
 # if it's putting a sticker, enter sticker name
 if process == 's':
     sec_path_name = input("Enter pathname for sticker(needs to be png file):")
@@ -160,7 +159,6 @@ if len(idxs) > 0:
                     alpha_sticker = alpha_sticker[:region.shape[0], :region.shape[1]]
                     sticker = sticker[:region.shape[0], :region.shape[1]]
                     image[y1:y2,x1:x2,c] = (alpha_sticker*sticker[:,:,c] + alpha_region*region)
-
 
 cv2.imwrite(filename + desired + process + "_yolo3." + ext, image)
 cv2.imshow("image", image)
